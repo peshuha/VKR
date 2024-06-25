@@ -30,6 +30,7 @@ export class RoomComponent implements AfterViewInit {
   mouse: any; 
   raycaster: THREE.Raycaster | undefined;
   canvas: HTMLCanvasElement | undefined; imgData: any; ctx: any
+  texture: THREE.Texture | undefined
 
   ngAfterViewInit(): void {
 
@@ -128,32 +129,32 @@ export class RoomComponent implements AfterViewInit {
       console.log("stencilImage.onload", self.imgData)
     };
 
-
-  return new THREE.ShaderMaterial({
-        uniforms: {
-            mouse: { type: "2f", value: self.mouse } as {type: string, value: any},
-            texture1: { type: "t", value: textureLoader.load( img ) } as {type: string, value: any},
-            texture2: { type: "t", value: textureLoader.load( stencil ) } as {type: string, value: any}
-        },
-        vertexShader: `
-            varying vec2 vUv;
-            void main() {
-                vUv = uv;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }`,
-        fragmentShader: `
-            precision highp float;
-            varying vec2 vUv;
-            uniform vec2 mouse;
-            uniform sampler2D texture1;
-            uniform sampler2D texture2;
-            void main() {
-                vec4 stencil = texture2D(texture2, vUv);
-                gl_FragColor = texture2D(texture1, vUv);
-                vec4 c = texture2D(texture2, mouse);
-                if (abs(c.x - stencil.x) < 0.0001 && stencil.x > 0.)
-                    gl_FragColor += vec4(0.,0.2,0,0.);
-            }`
+    this.texture = textureLoader.load( img )
+    return new THREE.ShaderMaterial({
+      uniforms: {
+          mouse: { type: "2f", value: self.mouse } as {type: string, value: any},
+          texture1: { type: "t", value: this.texture } as {type: string, value: any},
+          texture2: { type: "t", value: textureLoader.load( stencil ) } as {type: string, value: any}
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }`,
+      fragmentShader: `
+        precision highp float;
+        varying vec2 vUv;
+        uniform vec2 mouse;
+        uniform sampler2D texture1;
+        uniform sampler2D texture2;
+        void main() {
+            vec4 stencil = texture2D(texture2, vUv);
+            gl_FragColor = texture2D(texture1, vUv);
+            vec4 c = texture2D(texture2, mouse);
+            if (abs(c.x - stencil.x) < 0.0001 && stencil.x > 0.)
+                gl_FragColor += vec4(0.,0.2,0,0.);
+        }`
     })
   }
 
@@ -203,6 +204,10 @@ export class RoomComponent implements AfterViewInit {
         // console.log("raycast(event)", this)
         let y = Math.floor((1-this.uv.y)*this.canvas!.height);
         let x = Math.floor(this.uv.x*this.canvas!.width);
+
+        const data = this.texture?.source.data
+        // console.log("raycast(event) texture", this.canvas!.height, this.canvas!.width, data.height, data.width)
+
         let off = Math.floor(y*this.canvas!.width + x)*4;
         let r = this.imgData.data[off];
         let g = this.imgData.data[off+1];

@@ -1,7 +1,10 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import * as THREE from "three"
 import { SphereBufferGeometry } from '../../js/SphereBufferGeometry';
-import { uvToVector3 } from '../../class/point-utils';
+import { inside, uvToVector3 } from '../../class/point-utils';
+import { HotPolygonService } from '../../service/hot-polygon/hot-polygon.service';
+import { HotPolygon } from '../../model/hot-polygon';
+import { Point } from '../../model/point';
 
 
 @Component({
@@ -12,16 +15,14 @@ import { uvToVector3 } from '../../class/point-utils';
 export class Room3Component implements AfterViewInit, OnDestroy {
 
   @ViewChild("canvas") cnv: ElementRef | undefined
+  @ViewChild("info") info_: ElementRef | undefined
 
   camera: any; 
   scene: THREE.Scene | undefined
   renderer: THREE.WebGLRenderer | undefined
-  mesh: any; material: any; e: any
+  e: any
   sphere: THREE.Mesh | undefined
 
-  // objects: any
-  // uv: any
-  info: any
   lon: number = 0; lat: number = 0 
 
   mouseDown: any;
@@ -30,11 +31,26 @@ export class Room3Component implements AfterViewInit, OnDestroy {
   mouse: any; 
   raycaster: THREE.Raycaster | undefined;
   canvas: HTMLCanvasElement | undefined; 
-  // imgData: any; 
-  // ctx: any
+  texture: THREE.Texture | undefined
+  info: HTMLDivElement | undefined
 
-  // Last mesh Added
-  objLast: THREE.Object3D | undefined
+  npoint = 1
+
+  constructor(
+    private svcHP: HotPolygonService
+  ) {
+
+    const point = {x: 50, y: 50}
+    const vs = [
+      {x: 0, y: 0}, 
+      {x: 100, y: 0}, 
+      {x: 100, y: 100}, 
+      {x: 0, y: 100}, 
+      // {x: 0, y: 0}, 
+    ]
+    const is_inside = inside(point, vs)
+    console.log("Room3Component::constructor", is_inside)
+  }
 
   ngAfterViewInit(): void {
 
@@ -45,6 +61,8 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     else {
       console.log("isWebGLSupported() == true")
     }
+
+    this.info = this.info_?.nativeElement
 
     this.mouseDown = {};
     this.rectStart = {};
@@ -68,6 +86,44 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     removeEventListener('resize', this.onWindowResize);
   }
 
+  // Отобразить все hp
+  displayHP() {
+
+    // Сначала все удаляем
+    this.sphere?.children.forEach(ch => {ch.parent?.remove(ch)})
+
+    // Затем добавляем
+    for(let hp of this.svcHP.getHP()) {
+
+      if(!hp.points.length)
+        continue
+
+      // Отталкиваемся от статуса
+      const status = hp.status
+
+      // Обычный
+      if(status === "") {
+    
+        // Из точек формируем полигон
+        const points: THREE.Vector3[] = []
+        hp.points.forEach(p => points.push(uvToVector3(this.sphere!, this.xyTouv(p)!)!))
+
+        // Формируем замыкание
+        points.push(uvToVector3(this.sphere!, this.xyTouv(hp.points[0])!)!)
+
+        const material = new THREE.LineBasicMaterial({
+          color: 0xF8FA19,  // yellow
+          linewidth: 3
+        });    
+
+        // Формируем объект
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        this.sphere!.add(new THREE.Line(geometry, material))      
+      }
+
+    }
+  }
+
   isWebGLSupported () {
     const test = document.createElement('canvas');
     const ok = !!(window.WebGLRenderingContext && test.getContext('webgl'));
@@ -88,9 +144,9 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     const geometry = new SphereBufferGeometry(500, 60, 40)// , 0, 1.39, 1.23, 0.30); //)
     geometry.scale(-1, 1, 1);
 
-    this.material = new THREE.Material()
-    this.material = new THREE.MeshBasicMaterial( { map: new THREE.TextureLoader().load(json.texture) } )
-    this.sphere = new THREE.Mesh( geometry, this.material )
+    this.texture = new THREE.TextureLoader().load(json.texture)
+    const material = new THREE.MeshBasicMaterial( { map: this.texture} )
+    this.sphere = new THREE.Mesh( geometry, material )
 
     
     this.scene.add(this.sphere!)
@@ -99,10 +155,6 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     this.renderer.setPixelRatio(devicePixelRatio);
     this.renderer.setSize(innerWidth, innerHeight);
     console.log("this.renderer.domElement", this.renderer.domElement)
-
-    this.info = document.createElement('div');
-    this.info.id = 'info';
-    document.body.append(this.info);
 
     addEventListener('mousedown', this.onPointerStart.bind(this));
     addEventListener('mousemove', this.onPointerMove.bind(this));
@@ -158,7 +210,35 @@ export class Room3Component implements AfterViewInit, OnDestroy {
 
     this.mouse.set(x*2 - 1, 1 - y*2);
     this.raycaster!.setFromCamera(this.mouse, this.camera);
+
+    this.info!.innerText = ""
+    
+    const x2 = event.clientX || event.touches[0].clientX;
+    const y2 = event.clientY || event.touches[0].clientY;  
+    
+    // Получаем пересечения
     var intersects = this.raycaster!.intersectObjects( this.scene!.children );
+    if(!intersects || !intersects[0] || !intersects[0].uv?.y)
+      return
+
+    // Получаем точку в координатах исходника
+    const p = this.uvToxy(intersects[0].uv!)
+    const p2 = this.uvToxy(this.getUVCoord(x2, y2)!)
+
+    // console.log("raycast(event)", intersects[0].uv, p)
+    // return 
+
+    // Ищем ту область, в которой у нас точка
+    for(let hp of this.svcHP.getHP()) {
+      
+      if(!inside(p, hp.points))
+        continue
+
+      // console.log("raycast(event):hp", p, p2, hp)
+      this.info!.innerText = hp.comment || ""
+      break
+    }
+
   }
 
   onPointerMove( event ) {
@@ -174,7 +254,6 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     this.lat = (clientY - this.mouseDown.y)*this.camera.fov/600 + this.mouseDown.lat;
     this.lat = Math.max( - 85, Math.min( 85, this.lat ) );
   }
-
 
   onPointerStart( event ) {
 
@@ -204,19 +283,16 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     this.mouseDown.x = null;
     if(event.ctrlKey && this.rectStart.x) {
 
-      if(this.objLast) {
+      // Формируем прямоугольник
+      const points = this.buildRectXY(event)
+      console.log("onPointerUp(event)", points)
 
-        // Удаляем предыд объект
-        // this.objLast.parent!.remove(this.objLast)
-        this.objLast = undefined
-      }
+      // Добавляем его к списку HP
+      this.svcHP.addHP(points, `rect ${this.npoint}`)
+      this.npoint += 1
 
-      // Формируем прямоугольник1
-      // this.buildRect1(event)
-
-      // Формируем прямоугольник2
-      this.buildRect2(event)
-
+      // Перерисовываем 
+      this.displayHP()
     }
     this.rectStart.x = null;
   }
@@ -244,24 +320,10 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     // // Формируем объект
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
 
-    this.objLast = new THREE.Line(geometry, material);
-    console.log("onPointerUp() build line", this.objLast)
-    this.sphere!.add(this.objLast)
+    const objLast = new THREE.Line(geometry, material);
+    console.log("onPointerUp() build line", objLast)
+    this.sphere!.add(objLast)
 
-  }
-
-  uvToxy(uv: THREE.Vector2): THREE.Vector2 {
-
-    const y = Math.floor((1-uv.y)*this.canvas!.height);
-    const x = Math.floor(uv.x*this.canvas!.width);
-    return new THREE.Vector2(x, y) 
-  }
-
-  xyTouv(xy: THREE.Vector2): THREE.Vector2 {
-
-    const ux = xy.x / this.canvas!.width
-    const uy = 1 - xy.y / this.canvas!.height
-    return new THREE.Vector2(ux, uy) 
   }
 
   buildRect2(event) {
@@ -287,9 +349,46 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     // // Формируем объект
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
 
-    this.objLast = new THREE.Line(geometry, material);
-    console.log("onPointerUp() build line", this.objLast)
-    this.sphere!.add(this.objLast)
+    const objLast = new THREE.Line(geometry, material);
+    console.log("onPointerUp() build line", objLast)
+    this.sphere!.add(objLast)
+  }
+
+  buildRectXY(event): Point[] {
+
+    const x = this.rectStart.x
+    const y = this.rectStart.y
+    const x2 = event.clientX || event.touches[0].clientX;
+    const y2 = event.clientY || event.touches[0].clientY;
+
+    // Используем точки от кликов
+    const points: Point[] = []
+    points.push(this.uvToxy(this.getUVCoord(x, y)!)!)
+    points.push(this.uvToxy(this.getUVCoord(x2, y)!)!)
+    points.push(this.uvToxy(this.getUVCoord(x2, y2)!)!)
+    points.push(this.uvToxy(this.getUVCoord(x, y2)!)!)
+
+    return points
+  }
+
+  uvToxy(uv: THREE.Vector2): Point {
+
+    const data = this.texture?.source.data
+    // console.log("uvToxy texture", data.height, data.width)
+
+    const y = Math.floor((1-uv.y)*data!.height);
+    const x = Math.floor(uv.x*data!.width);
+    return {x, y} as Point 
+  }
+
+  xyTouv(xy: Point): THREE.Vector2 {
+
+    const data = this.texture?.source.data
+    // console.log("xyTouv texture", data.height, data.width)
+
+    const ux = xy.x / data!.width
+    const uy = 1 - xy.y / data!.height
+    return new THREE.Vector2(ux, uy) 
   }
 
   onDocumentMouseWheel( event ) {

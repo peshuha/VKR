@@ -134,7 +134,7 @@ function getBarycentricCoordinates2d(p: Vector2, v1: Vector2, v2: Vector2, v3: V
 
 
 // Проверяет входит ли точка в полигон
-export function inside(point, vs) {
+export function inside0(point, vs) {
     // ray-casting algorithm based on
     // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
     
@@ -148,6 +148,27 @@ export function inside(point, vs) {
         var intersect = ((yi > y) != (yj > y))
             && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
         if (intersect) inside = !inside;
+    }
+    
+    return inside;
+};
+
+// Проверяет входит ли точка в полигон
+export function inside(point, vs) {
+    // ray-casting algorithm based on
+    // https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+    
+    const x = point.x, y = point.y;
+
+    // console.log("inside", point, vs)
+    
+    let inside = false;
+    let j = vs.length - 1;
+    for (let i = 0; i < vs.length; i++) {
+        if ( (vs[i].y < y && vs[j].y >= y || vs[j].y < y && vs[i].y >= y) &&
+             (vs[i].x + (y - vs[i].y) / (vs[j].y - vs[i].y) * (vs[j].x - vs[i].x) < x) )
+             inside = !inside;
+        j = i;
     }
     
     return inside;
