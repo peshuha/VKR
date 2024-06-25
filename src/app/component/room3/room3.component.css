@@ -1,0 +1,16 @@
+/* body{
+    margin: 0;
+    overflow: hidden;
+} */
+.canvas {
+    border: 1px solid red;
+}
+#info {
+    position: absolute;
+    background-color: rgba(135, 96, 96, 0.5);
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 18px;
+    padding: 0 10px 0 10px;
+    opacity: 0;
+}

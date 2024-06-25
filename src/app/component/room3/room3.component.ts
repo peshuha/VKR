@@ -3,11 +3,11 @@ import * as THREE from "three"
 import { SphereBufferGeometry } from '../../js/SphereBufferGeometry'; "../app/js/SphereBufferGeometry"
 
 @Component({
-  selector: 'app-room2',
-  templateUrl: './room2.component.html',
-  styleUrl: './room2.component.css'
+  selector: 'app-room3',
+  templateUrl: './room3.component.html',
+  styleUrl: './room3.component.css'
 })
-export class Room2Component implements AfterViewInit, OnDestroy {
+export class Room3Component implements AfterViewInit, OnDestroy {
 
   @ViewChild("canvas") cnv: ElementRef | undefined
 
