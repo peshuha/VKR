@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, ViewChild } from '@angular/core';
 import * as THREE from "three"
-import { SphereBufferGeometry } from '../../js/SphereBufferGeometry'; "../app/js/SphereBufferGeometry"
+import { SphereBufferGeometry } from '../../js/SphereBufferGeometry'
 
 @Component({
   selector: 'app-room',

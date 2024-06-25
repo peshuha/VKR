@@ -21,6 +21,17 @@ const getVertex = (vertices: Float32Array, index: number, out: Vector3) => {
   out.z = vertices[index * 3 + 2] ?? 0;
 };
 
+export function uvToVector3(mesh:Mesh, uv: Vector2): Vector3 | undefined {
+    const v3 = new Vector3
+    const norm = new Vector3
+
+    if(!uvToWorldPosition(mesh, uv, v3, norm)) {
+        return undefined
+    }
+
+    return v3
+}
+
 /**
  * Convert UV coordinates to world position
  * @param mesh mesh with indexed buffer geometry

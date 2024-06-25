@@ -1,6 +1,8 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import * as THREE from "three"
-import { SphereBufferGeometry } from '../../js/SphereBufferGeometry'; "../app/js/SphereBufferGeometry"
+import { SphereBufferGeometry } from '../../js/SphereBufferGeometry';
+import { uvToVector3 } from '../../class/point-utils';
+
 
 @Component({
   selector: 'app-room3',
@@ -17,8 +19,8 @@ export class Room3Component implements AfterViewInit, OnDestroy {
   mesh: any; material: any; e: any
   sphere: THREE.Mesh | undefined
 
-  objects: any
-  uv: any
+  // objects: any
+  // uv: any
   info: any
   lon: number = 0; lat: number = 0 
 
@@ -27,7 +29,9 @@ export class Room3Component implements AfterViewInit, OnDestroy {
 
   mouse: any; 
   raycaster: THREE.Raycaster | undefined;
-  canvas: HTMLCanvasElement | undefined; imgData: any; ctx: any
+  canvas: HTMLCanvasElement | undefined; 
+  // imgData: any; 
+  // ctx: any
 
   // Last mesh Added
   objLast: THREE.Object3D | undefined
@@ -135,6 +139,17 @@ export class Room3Component implements AfterViewInit, OnDestroy {
     return intersects[0].point;
   }
 
+  getUVCoord(clientX, clientY) {
+    var rect = this.renderer!.domElement.getBoundingClientRect();
+    var x = (clientX - rect.left)/rect.width,
+        y = (clientY - rect.top)/rect.height;
+
+    this.mouse.set(x*2 - 1, 1 - y*2);
+    this.raycaster!.setFromCamera(this.mouse, this.camera);
+    var intersects = this.raycaster!.intersectObjects( this.scene!.children );
+    return intersects[0].uv;
+  }
+
   raycast(event) {
 
     var rect = this.renderer!.domElement.getBoundingClientRect();
@@ -192,38 +207,89 @@ export class Room3Component implements AfterViewInit, OnDestroy {
       if(this.objLast) {
 
         // Удаляем предыд объект
-        this.objLast.parent!.remove(this.objLast)
+        // this.objLast.parent!.remove(this.objLast)
         this.objLast = undefined
       }
 
-      // Формируем прямоугольник
-      const material = new THREE.LineBasicMaterial({
-        color: 0xFF65FC,
-        linewidth: 3
-      });
+      // Формируем прямоугольник1
+      // this.buildRect1(event)
 
-      const x = this.rectStart.x
-      const y = this.rectStart.y
-      const x2 = event.clientX || event.touches[ 0 ].clientX;
-      const y2 = event.clientY || event.touches[ 0 ].clientY;
+      // Формируем прямоугольник2
+      this.buildRect2(event)
 
-      // Используем точки от кликов
-      const points: THREE.Vector3[] = []
-      points.push(this.getSphereCoord(x, y))
-      points.push(this.getSphereCoord(x2, y))
-      points.push(this.getSphereCoord(x2, y2))
-      points.push(this.getSphereCoord(x, y2))
-      points.push(this.getSphereCoord(x, y))
-
-      // // Формируем объект
-      const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-      this.objLast = new THREE.Line(geometry, material);
-      console.log("onPointerUp() build line", this.objLast)
-      this.sphere!.add(this.objLast)
-      // return
     }
     this.rectStart.x = null;
+  }
+
+  buildRect1(event) {
+
+    const material = new THREE.LineBasicMaterial({
+      color: 0xFF65FC,
+      linewidth: 3
+    });
+
+    const x = this.rectStart.x
+    const y = this.rectStart.y
+    const x2 = event.clientX || event.touches[0].clientX;
+    const y2 = event.clientY || event.touches[0].clientY;
+
+    // Используем точки от кликов
+    const points: THREE.Vector3[] = []
+    points.push(this.getSphereCoord(x, y))
+    points.push(this.getSphereCoord(x2, y))
+    points.push(this.getSphereCoord(x2, y2))
+    points.push(this.getSphereCoord(x, y2))
+    points.push(this.getSphereCoord(x, y))
+
+    // // Формируем объект
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+    this.objLast = new THREE.Line(geometry, material);
+    console.log("onPointerUp() build line", this.objLast)
+    this.sphere!.add(this.objLast)
+
+  }
+
+  uvToxy(uv: THREE.Vector2): THREE.Vector2 {
+
+    const y = Math.floor((1-uv.y)*this.canvas!.height);
+    const x = Math.floor(uv.x*this.canvas!.width);
+    return new THREE.Vector2(x, y) 
+  }
+
+  xyTouv(xy: THREE.Vector2): THREE.Vector2 {
+
+    const ux = xy.x / this.canvas!.width
+    const uy = 1 - xy.y / this.canvas!.height
+    return new THREE.Vector2(ux, uy) 
+  }
+
+  buildRect2(event) {
+
+    const material = new THREE.LineBasicMaterial({
+      color: 0xF8FA19,
+      linewidth: 3
+    });
+
+    const x = this.rectStart.x
+    const y = this.rectStart.y
+    const x2 = event.clientX || event.touches[0].clientX;
+    const y2 = event.clientY || event.touches[0].clientY;
+
+    // Используем точки от кликов
+    const points: THREE.Vector3[] = []
+    points.push(uvToVector3(this.sphere!, this.getUVCoord(x, y)!)!)
+    points.push(uvToVector3(this.sphere!, this.getUVCoord(x2, y)!)!)
+    points.push(uvToVector3(this.sphere!, this.getUVCoord(x2, y2)!)!)
+    points.push(uvToVector3(this.sphere!, this.getUVCoord(x, y2)!)!)
+    points.push(uvToVector3(this.sphere!, this.getUVCoord(x, y)!)!)
+
+    // // Формируем объект
+    const geometry = new THREE.BufferGeometry().setFromPoints(points);
+
+    this.objLast = new THREE.Line(geometry, material);
+    console.log("onPointerUp() build line", this.objLast)
+    this.sphere!.add(this.objLast)
   }
 
   onDocumentMouseWheel( event ) {
